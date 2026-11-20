@@ -63,7 +63,7 @@ Requires Node.js 20 or later for the built-in test runner. No dependencies are
 needed.
 
 ```bash
-node --test --test-isolation=none tests/ahp.test.js
+node --test tests/ahp.test.js
 node --check src/ahp.js
 node --check src/app.js
 node --check src/model.js
@@ -75,6 +75,10 @@ To print every matrix and intermediate calculation from an exported JSON file:
 ```bash
 node scripts/audit.js path/to/my-decision.json eigen
 ```
+
+In a restricted environment that blocks the test runner from spawning its
+worker process, `node --test --test-isolation=none tests/ahp.test.js` runs the
+same tests in the current process.
 
 To serve it locally over HTTP if preferred:
 
