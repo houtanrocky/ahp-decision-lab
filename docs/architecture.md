@@ -2,11 +2,12 @@
 
 ## Product boundary
 
-Decision Lab is a static browser application for user-defined decisions. The
+Decision Lab is a static bilingual browser application for user-defined decisions. The
 starting model is empty. The app contains no bundled personal profile, names of
 real people, résumé details, or example decision. It has no account, telemetry,
-backend, or network calls. The browser stores a model locally; JSON and CSV are
-created only when the user requests an export.
+backend or analytics. It fetches only the selected translation JSON from its
+own static site; decision data remains in local storage and JSON/CSV exports
+are created only when requested.
 
 ## Runtime flow
 
@@ -15,16 +16,18 @@ index.html
   ├─ src/data.js  → empty schema-versioned model (AHP_SEED)
   ├─ src/model.js → dynamic model edits and comparison remapping (AHPModel)
   ├─ src/ahp.js   → pure calculations and model validation (AHPEngine)
+  ├─ src/i18n.js  → locale loading, interpolation, and language direction
   └─ src/app.js   → editor, persistence, pairwise inputs, result views
                         ├─ localStorage: browser's current working model
                         ├─ JSON: editable decision backup / import
                         └─ CSV: calculated scores and consistency values
+  locales/{en,fa}.json → English and Persian UI text
 ```
 
-Keep the script order. `app.js` expects the model, editing, and calculation
-globals loaded first. No build,
-installation, or network connection is needed. The app can be opened directly
-from disk or served as static files.
+Keep the script order. `app.js` expects the model, editing, calculation, and
+i18n globals loaded first. No build or installation is needed. Serve the app
+over HTTP so the browser can load its locale JSON files; direct `file://` use
+is blocked by browser file-origin security.
 
 ## Responsibilities
 
@@ -35,8 +38,11 @@ from disk or served as static files.
 | `src/data.js` | Empty model template and schema version |
 | `src/model.js` | DOM-free add/remove/rename operations and comparison remapping |
 | `src/ahp.js` | Matrix validation/construction, solvers, consistency, ranking, sensitivity |
+| `src/i18n.js` | Loads locale JSON, applies static attributes, resolves translated strings |
 | `src/app.js` | User-defined items, events, local storage, rendering, import/export |
+| `locales/en.json`, `locales/fa.json` | Complete English and Persian UI catalogs |
 | `tests/ahp.test.js` | Mathematical behavior and malformed-model cases |
+| `tests/i18n.test.js` | Catalog parity, metadata, and placeholder parity |
 | `docs/assumptions.md` | Scale and method assumptions shown to maintainers |
 
 ## Model format
@@ -86,15 +92,19 @@ Node.js. This lets UI and tests use exactly the same math.
   imported JSON before storing or calculating it.
 - Bump `schemaVersion` only when the portable JSON shape changes; coordinate
   migration and import handling if that happens.
-- Run `node --test --test-isolation=none tests/ahp.test.js` after calculation or
-  model validation changes. Syntax checks are listed in the README.
+- Keep both locale JSON catalogs in sync. `tests/i18n.test.js` checks matching
+  keys, interpolation placeholders, and application references.
+- Run `node --test tests/ahp.test.js tests/i18n.test.js` after model, math, or
+  translation changes. Syntax checks are listed in the README.
 - Keep tests independent of any real person's data; construct synthetic models
   inside tests as `tests/ahp.test.js` does.
 
 ## Storage and privacy
 
 The app stores the current model under `ahp-decision-lab-model-v2` in the
-current browser profile. Reset removes that key. Import validates then stores a
+current browser profile and the selected language under
+`ahp-decision-lab-language-v1`. Reset removes the model key but keeps the
+language preference. Import validates then stores a
 user-supplied model. Exported JSON contains names and notes the user entered;
 users should handle the file accordingly. Clearing browser storage does not
 remove files previously downloaded.

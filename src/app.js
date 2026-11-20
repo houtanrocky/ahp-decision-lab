@@ -7,16 +7,22 @@
 
   const Engine = window.AHPEngine;
   const DecisionModel = window.AHPModel;
+  const I18n = window.AHPI18n;
   const blankModel = window.AHP_SEED;
   const STORAGE_KEY = 'ahp-decision-lab-model-v2';
   const LEGACY_STORAGE_KEY = 'tmu-ahp-decision-lab-v1';
+  const LANGUAGE_KEY = 'ahp-decision-lab-language-v1';
   const MAX_ITEMS = DecisionModel.MAX_ITEMS;
   const COLORS = ['#0c908a', '#507fae', '#c29252', '#ae6aa9', '#839b5e', '#cf6b54', '#557d68', '#8c78b2', '#b17c47', '#497e91'];
   const $ = id => document.getElementById(id);
   const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   })[char]);
-  const format = (value, digits = 1) => Number(value).toFixed(digits);
+  const t = (key, values) => I18n.t(key, values);
+  const format = (value, digits = 1) => new Intl.NumberFormat(I18n.locale, {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  }).format(value);
   const percent = (value, digits = 1) => `${format(value * 100, digits)}%`;
 
   function emptyModel() {
@@ -57,7 +63,7 @@
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(model));
     } catch (error) {
-      showToast('Browser storage is unavailable. Export your decision to keep a copy.');
+      showToast(t('message.storageUnavailable'));
     }
   }
 
@@ -74,21 +80,21 @@
   }
 
   function nameOf(item) {
-    return item.name.trim() || 'Untitled';
+    return item.name.trim() || t('items.untitled');
   }
 
   function renderDefinitions() {
     $('options-list').innerHTML = model.alternatives.map((option, index) => `
       <div class="definition-row">
-        <label class="visually-hidden" for="option-${escapeHTML(option.id)}">Option ${index + 1} name</label>
-        <input id="option-${escapeHTML(option.id)}" data-item-name="option" data-id="${escapeHTML(option.id)}" maxlength="100" value="${escapeHTML(option.name)}" placeholder="Option ${index + 1}" />
-        <button class="remove-item" type="button" data-remove="option" data-id="${escapeHTML(option.id)}" aria-label="Remove ${escapeHTML(nameOf(option))}">Remove</button>
+        <label class="visually-hidden" for="option-${escapeHTML(option.id)}">${escapeHTML(t('options.nameLabel', { number: format(index + 1, 0) }))}</label>
+        <input id="option-${escapeHTML(option.id)}" data-item-name="option" data-id="${escapeHTML(option.id)}" maxlength="100" value="${escapeHTML(option.name)}" placeholder="${escapeHTML(t('options.namePlaceholder', { number: format(index + 1, 0) }))}" />
+        <button class="remove-item" type="button" data-remove="option" data-id="${escapeHTML(option.id)}" aria-label="${escapeHTML(t('options.remove', { name: nameOf(option) }))}">${escapeHTML(t('action.remove'))}</button>
       </div>`).join('');
     $('criteria-list').innerHTML = model.criteria.map((criterion, index) => `
       <div class="definition-row">
-        <label class="visually-hidden" for="criterion-${escapeHTML(criterion.id)}">Criterion ${index + 1} name</label>
-        <input id="criterion-${escapeHTML(criterion.id)}" data-item-name="criterion" data-id="${escapeHTML(criterion.id)}" maxlength="100" value="${escapeHTML(criterion.name)}" placeholder="Criterion ${index + 1}" />
-        <button class="remove-item" type="button" data-remove="criterion" data-id="${escapeHTML(criterion.id)}" aria-label="Remove ${escapeHTML(nameOf(criterion))}">Remove</button>
+        <label class="visually-hidden" for="criterion-${escapeHTML(criterion.id)}">${escapeHTML(t('criteria.nameLabel', { number: format(index + 1, 0) }))}</label>
+        <input id="criterion-${escapeHTML(criterion.id)}" data-item-name="criterion" data-id="${escapeHTML(criterion.id)}" maxlength="100" value="${escapeHTML(criterion.name)}" placeholder="${escapeHTML(t('criteria.namePlaceholder', { number: format(index + 1, 0) }))}" />
+        <button class="remove-item" type="button" data-remove="criterion" data-id="${escapeHTML(criterion.id)}" aria-label="${escapeHTML(t('criteria.remove', { name: nameOf(criterion) }))}">${escapeHTML(t('action.remove'))}</button>
       </div>`).join('');
 
     $('add-option').disabled = model.alternatives.length >= MAX_ITEMS;
@@ -96,8 +102,15 @@
     const ready = model.alternatives.length >= 2 && model.criteria.length >= 2;
     $('workspace').classList.toggle('hidden', !ready);
     $('setup-hint').textContent = ready
-      ? `${model.alternatives.length} options · ${model.criteria.length} criteria · ${comparisonCount()} pairwise judgments`
-      : `Add at least two options and two criteria to begin comparing. (Currently ${model.alternatives.length} options and ${model.criteria.length} criteria.)`;
+      ? t('setup.complete', {
+        options: format(model.alternatives.length, 0),
+        criteria: format(model.criteria.length, 0),
+        comparisons: format(comparisonCount(), 0),
+      })
+      : t('setup.incomplete', {
+        options: format(model.alternatives.length, 0),
+        criteria: format(model.criteria.length, 0),
+      });
   }
 
   function comparisonCount() {
@@ -107,12 +120,15 @@
   }
 
   function ratioLabel(value) {
-    if (Math.abs(value - 1) < 1e-8) return '1';
+    if (Math.abs(value - 1) < 1e-8) return t('scale.equalValue');
     const amount = value < 1 ? 1 / value : value;
-    const strength = amount === 3 ? 'Moderate' : amount === 5 ? 'Strong' : amount === 7 ? 'Very strong' : amount === 9 ? 'Extreme' : '';
-    const ratio = value < 1 ? `1/${Number.isInteger(amount) ? amount : format(amount, 1)}` : String(value);
-    const direction = value < 1 ? 'Right' : 'Left';
-    return `${ratio} · ${direction}${strength ? ` / ${strength}` : ''}`;
+    const strength = amount === 3 ? t('scale.moderate')
+      : amount === 5 ? t('scale.strong')
+        : amount === 7 ? t('scale.veryStrong')
+          : amount === 9 ? t('scale.extreme') : '';
+    const ratioValue = Number.isInteger(amount) ? format(amount, 0) : format(amount, 1);
+    const ratio = value < 1 ? t('scale.reciprocal', { value: ratioValue }) : format(value, 0);
+    return t(value < 1 ? 'scale.right' : 'scale.left', { ratio, strength });
   }
 
   function comparisonOptions(selectedValue) {
@@ -133,7 +149,7 @@
   function matrixTable(matrix, items) {
     const headers = items.map(item => `<th title="${escapeHTML(nameOf(item))}">${escapeHTML(nameOf(item))}</th>`).join('');
     const rows = matrix.map((row, index) => `<tr><th>${escapeHTML(nameOf(items[index]))}</th>${row.map((value, column) => `<td class="${index === column ? 'diag' : index < column ? 'upper' : ''}">${escapeHTML(ratioLabel(value))}</td>`).join('')}</tr>`).join('');
-    return `<table class="matrix-table"><thead><tr><th>Comparison</th>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
+    return `<table class="matrix-table"><thead><tr><th>${escapeHTML(t('matrix.corner'))}</th>${headers}</tr></thead><tbody>${rows}</tbody></table>`;
   }
 
   function renderPairs() {
@@ -149,10 +165,10 @@
         const key = `${left}-${right}`;
         const noteId = JSON.stringify([items[left].id, items[right].id]);
         const noteKey = `${scope}/${noteId}`;
-        html += `<div class="pair-row"><div class="pair-head"><span class="pair-label">${escapeHTML(nameOf(items[left]))}</span><div class="pair-control"><select aria-label="${escapeHTML(nameOf(items[left]))} versus ${escapeHTML(nameOf(items[right]))}" data-pair="${key}" data-scope="${escapeHTML(scope)}">${comparisonOptions(pairs[key])}</select><small>Left : Right</small></div><span class="pair-label right">${escapeHTML(nameOf(items[right]))}</span></div><input type="text" class="comparison-note" data-note="${escapeHTML(noteId)}" data-scope="${escapeHTML(scope)}" maxlength="300" value="${escapeHTML(model.judgmentNotes[noteKey] || '')}" placeholder="Reason or evidence (optional)" aria-label="Reason for ${escapeHTML(nameOf(items[left]))} versus ${escapeHTML(nameOf(items[right]))}" /></div>`;
+        html += `<div class="pair-row"><div class="pair-head"><span class="pair-label">${escapeHTML(nameOf(items[left]))}</span><div class="pair-control"><select aria-label="${escapeHTML(t('judgments.pairLabel', { left: nameOf(items[left]), right: nameOf(items[right]) }))}" data-pair="${key}" data-scope="${escapeHTML(scope)}">${comparisonOptions(pairs[key])}</select><small>${escapeHTML(t('judgments.leftRight'))}</small></div><span class="pair-label right">${escapeHTML(nameOf(items[right]))}</span></div><input type="text" class="comparison-note" data-note="${escapeHTML(noteId)}" data-scope="${escapeHTML(scope)}" maxlength="300" value="${escapeHTML(model.judgmentNotes[noteKey] || '')}" placeholder="${escapeHTML(t('judgments.notePlaceholder'))}" aria-label="${escapeHTML(t('judgments.noteLabel', { left: nameOf(items[left]), right: nameOf(items[right]) }))}" /></div>`;
       }
     }
-    $('pair-list').innerHTML = html || '<p class="muted">No comparisons to show.</p>';
+    $('pair-list').innerHTML = html || `<p class="muted">${escapeHTML(t('judgments.noComparisons'))}</p>`;
     $('editable-matrix').innerHTML = matrixTable(Engine.toMatrix(items.length, pairs), items);
   }
 
@@ -179,24 +195,24 @@
   function renderRanking() {
     scores = currentScores();
     const ranking = Engine.rank(scores);
-    $('criterion-cr').textContent = `Criteria CR ${percent(result.criteria.CR, 2)}`;
+    $('criterion-cr').textContent = t('results.consistency', { value: percent(result.criteria.CR, 2) });
     $('criterion-cr').className = result.criteria.acceptable ? 'ok' : 'warn';
-    $('mode-label').textContent = scenarioEnabled ? 'Scenario-adjusted preference shares' : 'Calculated preference shares';
+    $('mode-label').textContent = t(scenarioEnabled ? 'results.scenarioShares' : 'results.shares');
     $('ranking').innerHTML = ranking.map((entry, order) => {
       const option = model.alternatives[entry.index];
       const color = COLORS[entry.index % COLORS.length];
-      return `<div><div class="rank-head"><span class="rank-id">${String(order + 1).padStart(2, '0')}</span><div><div class="rank-name">${escapeHTML(nameOf(option))}</div></div><div class="rank-percent">${percent(entry.score)}</div></div><div class="rank-trackline"><div class="rank-fill" style="background:${color};width:${100 * entry.score}%"></div></div></div>`;
+      return `<div><div class="rank-head"><span class="rank-id">${format(order + 1, 0)}</span><div><div class="rank-name">${escapeHTML(nameOf(option))}</div></div><div class="rank-percent">${percent(entry.score)}</div></div><div class="rank-trackline"><div class="rank-fill" style="background:${color};width:${100 * entry.score}%"></div></div></div>`;
     }).join('');
     const weights = scenarioWeights();
-    const header = `<tr><th>Criterion (weight)</th>${model.alternatives.map(option => `<th>${escapeHTML(nameOf(option))}</th>`).join('')}</tr>`;
-    const rows = model.criteria.map((criterion, index) => `<tr><td>${escapeHTML(nameOf(criterion))} (${percent(weights[index])})</td>${model.alternatives.map((option, optionIndex) => `<td title="Local priority: ${percent(result.locals[index].weights[optionIndex])}">${percent(weights[index] * result.locals[index].weights[optionIndex])}</td>`).join('')}</tr>`).join('');
-    const totals = `<tr class="total"><td>Final preference</td>${scores.map(score => `<td>${percent(score)}</td>`).join('')}</tr>`;
+    const header = `<tr><th>${escapeHTML(t('results.criterionWeight'))}</th>${model.alternatives.map(option => `<th>${escapeHTML(nameOf(option))}</th>`).join('')}</tr>`;
+    const rows = model.criteria.map((criterion, index) => `<tr><td>${escapeHTML(nameOf(criterion))} (${percent(weights[index])})</td>${model.alternatives.map((option, optionIndex) => `<td title="${escapeHTML(t('results.localPriority', { value: percent(result.locals[index].weights[optionIndex]) }))}">${percent(weights[index] * result.locals[index].weights[optionIndex])}</td>`).join('')}</tr>`).join('');
+    const totals = `<tr class="total"><td>${escapeHTML(t('results.finalPreference'))}</td>${scores.map(score => `<td>${percent(score)}</td>`).join('')}</tr>`;
     $('contributions').innerHTML = `<table class="contribution-table"><thead>${header}</thead><tbody>${rows}${totals}</tbody></table>`;
-    $('consistency').innerHTML = [{ name: 'Criteria', analysis: result.criteria }, ...model.criteria.map((criterion, index) => ({ name: nameOf(criterion), analysis: result.locals[index] }))]
-      .map(entry => `<div class="consistency-row"><span>${escapeHTML(entry.name)}</span><strong class="${entry.analysis.acceptable ? 'ok' : 'warn'}">${percent(entry.analysis.CR, 2)} ${entry.analysis.acceptable ? '✓' : 'Review'}</strong></div>`).join('');
+    $('consistency').innerHTML = [{ name: t('audit.criteriaLabel'), analysis: result.criteria }, ...model.criteria.map((criterion, index) => ({ name: nameOf(criterion), analysis: result.locals[index] }))]
+      .map(entry => `<div class="consistency-row"><span>${escapeHTML(entry.name)}</span><strong class="${entry.analysis.acceptable ? 'ok' : 'warn'}">${percent(entry.analysis.CR, 2)} ${entry.analysis.acceptable ? '✓' : escapeHTML(t('results.review'))}</strong></div>`).join('');
     $('result-caveat').textContent = scenarioEnabled
-      ? 'Scenario scores change one criterion weight directly. They do not describe a new set of pairwise comparisons.'
-      : 'Shares summarize your stated preferences. They are not probabilities, predictions, or guarantees.';
+      ? t('results.scenarioCaveat')
+      : t('results.caveat');
   }
 
   function renderSensitivity() {
@@ -205,49 +221,52 @@
     const baseWeight = result.criteria.weights[index];
     if (scenarioPercent === null) scenarioPercent = Math.round(baseWeight * 100);
     $('scenario-criterion').innerHTML = model.criteria.map(item => `<option value="${escapeHTML(item.id)}" ${item.id === scenarioCriterion ? 'selected' : ''}>${escapeHTML(nameOf(item))}</option>`).join('');
-    $('scenario-weight-name').textContent = `${nameOf(criterion)} weight`;
+    $('scenario-weight-name').textContent = t('scenario.criterionWeightName', { name: nameOf(criterion) });
     $('scenario-slider').value = String(scenarioPercent);
-    $('scenario-percent').textContent = `${scenarioPercent}%`;
+    $('scenario-percent').textContent = percent(scenarioPercent / 100, 0);
     $('scenario-toggle').checked = scenarioEnabled;
     const samples = Engine.sensitivity(result, index, 100);
     const width = 900, height = 274, left = 55, right = 24, top = 18, bottom = 39;
     const plotWidth = width - left - right, plotHeight = height - top - bottom;
     const x = value => left + plotWidth * value;
     const y = value => top + plotHeight * (1 - value);
-    let svg = `<svg role="img" aria-label="Scenario preference scores as criterion weight changes" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
+    let svg = `<svg role="img" aria-label="${escapeHTML(t('scenario.chartLabel'))}" direction="${I18n.direction}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">`;
     for (let value = 0; value <= 1.00001; value += 0.2) {
-      svg += `<line x1="${left}" y1="${y(value)}" x2="${width - right}" y2="${y(value)}" stroke="#e7eef2"/><text x="${left - 10}" y="${y(value) + 4}" text-anchor="end" font-size="11" fill="#8194a2">${Math.round(value * 100)}%</text>`;
+      svg += `<line x1="${left}" y1="${y(value)}" x2="${width - right}" y2="${y(value)}" stroke="#e7eef2"/><text x="${left - 10}" y="${y(value) + 4}" text-anchor="end" font-size="11" fill="#8194a2">${percent(value, 0)}</text>`;
     }
     for (let value = 0; value <= 1.0001; value += 0.25) {
-      svg += `<line x1="${x(value)}" y1="${top}" x2="${x(value)}" y2="${height - bottom}" stroke="#f0f4f7"/><text x="${x(value)}" y="${height - 14}" text-anchor="middle" font-size="11" fill="#8194a2">${Math.round(value * 100)}%</text>`;
+      svg += `<line x1="${x(value)}" y1="${top}" x2="${x(value)}" y2="${height - bottom}" stroke="#f0f4f7"/><text x="${x(value)}" y="${height - 14}" text-anchor="middle" font-size="11" fill="#8194a2">${percent(value, 0)}</text>`;
     }
     model.alternatives.forEach((option, optionIndex) => {
       const path = samples.map((sample, sampleIndex) => `${sampleIndex ? 'L' : 'M'} ${format(x(sample.weight), 2)} ${format(y(sample.scores[optionIndex]), 2)}`).join(' ');
       svg += `<path d="${path}" fill="none" stroke="${COLORS[optionIndex % COLORS.length]}" stroke-width="3" stroke-linejoin="round"/>`;
     });
-    svg += `<line x1="${x(baseWeight)}" y1="${top}" x2="${x(baseWeight)}" y2="${height - bottom}" stroke="#8f9eb0" stroke-dasharray="5 5"/><text x="${Math.min(width - 110, x(baseWeight) + 6)}" y="${top + 11}" font-size="10" fill="#657789">Base ${percent(baseWeight, 0)}</text>`;
+    svg += `<line x1="${x(baseWeight)}" y1="${top}" x2="${x(baseWeight)}" y2="${height - bottom}" stroke="#8f9eb0" stroke-dasharray="5 5"/><text x="${Math.min(width - 110, x(baseWeight) + 6)}" y="${top + 11}" font-size="10" fill="#657789">${escapeHTML(t('scenario.baseLabel', { value: percent(baseWeight, 0) }))}</text>`;
     if (scenarioEnabled) {
       model.alternatives.forEach((option, optionIndex) => {
         svg += `<circle cx="${x(scenarioPercent / 100)}" cy="${y(scores[optionIndex])}" r="5" fill="${COLORS[optionIndex % COLORS.length]}" stroke="white" stroke-width="2"/>`;
       });
     }
-    svg += `<text x="${left + plotWidth / 2}" y="${height - 2}" font-size="11" fill="#6a7e8c" text-anchor="middle">Weight assigned to “${escapeHTML(nameOf(criterion))}”</text></svg>`;
+    svg += `<text x="${left + plotWidth / 2}" y="${height - 2}" font-size="11" fill="#6a7e8c" text-anchor="middle">${escapeHTML(t('scenario.axisLabel', { name: nameOf(criterion) }))}</text></svg>`;
     $('sensitivity-chart').innerHTML = svg;
     $('chart-legend').innerHTML = model.alternatives.map((option, index) => `<span><i class="legend-color" style="background:${COLORS[index % COLORS.length]}"></i>${escapeHTML(nameOf(option))}</span>`).join('');
     const changes = [];
     for (let index = 1; index < samples.length; index += 1) {
       if (samples[index].winner !== samples[index - 1].winner) changes.push(samples[index]);
     }
-    $('sensitivity-note').innerHTML = `Base weight: <strong>${percent(baseWeight)}</strong>. ${changes.length ? `The leader changes near ${changes.map(sample => percent(sample.weight, 0)).join(', ')}.` : 'The leader stays the same across the 0–100% scenario range.'}`;
+    const note = changes.length
+      ? t('scenario.leaderChanges', { values: changes.map(sample => percent(sample.weight, 0)).join(t('list.separator')) })
+      : t('scenario.leaderStable');
+    $('sensitivity-note').innerHTML = `${escapeHTML(t('scenario.baseWeight', { value: percent(baseWeight) }))} ${escapeHTML(note)}`;
   }
 
   function renderAudit() {
-    $('audit-method').textContent = method === 'eigen' ? 'Principal eigenvector' : 'Row geometric mean';
-    $('audit-summary').innerHTML = `<div class="audit-summary-line"><span><b>Solver</b> ${method === 'eigen' ? 'Power iteration' : 'Row geometric mean'}</span><span><b>Criteria λmax</b> ${format(result.criteria.lambdaMax, 6)}</span><span><b>CI</b> ${format(result.criteria.CI, 6)}</span><span><b>RI</b> ${format(result.criteria.RI, 2)}</span><span><b>CR</b> ${percent(result.criteria.CR, 3)}</span></div>`;
+    $('audit-method').textContent = t(method === 'eigen' ? 'results.eigen' : 'results.rgmm');
+    $('audit-summary').innerHTML = `<div class="audit-summary-line"><span><b>${escapeHTML(t('audit.solver'))}</b> ${escapeHTML(t(method === 'eigen' ? 'audit.powerIteration' : 'audit.rowGeometricMean'))}</span><span><b>${escapeHTML(t('audit.criteriaLambda'))}</b> ${format(result.criteria.lambdaMax, 6)}</span><span><b>${escapeHTML(t('audit.ci'))}</b> ${format(result.criteria.CI, 6)}</span><span><b>${escapeHTML(t('audit.ri'))}</b> ${format(result.criteria.RI, 2)}</span><span><b>${escapeHTML(t('audit.cr'))}</b> ${percent(result.criteria.CR, 3)}</span></div>`;
     const groups = [
-      { title: 'Criteria comparisons', items: model.criteria, pairs: model.criteriaPairs, analysis: result.criteria },
+      { title: t('audit.criteriaComparisons'), items: model.criteria, pairs: model.criteriaPairs, analysis: result.criteria },
       ...model.criteria.map((criterion, index) => ({
-        title: `Options for ${nameOf(criterion)}`,
+        title: t('audit.optionsFor', { name: nameOf(criterion) }),
         items: model.alternatives,
         pairs: model.alternativePairs[criterion.id],
         analysis: result.locals[index],
@@ -256,7 +275,15 @@
     $('all-matrices').innerHTML = groups.map(group => {
       const matrix = Engine.toMatrix(group.items.length, group.pairs);
       const rows = group.items.map((item, index) => `<tr><td>${escapeHTML(nameOf(item))}</td><td>${format(group.analysis.weights[index], 6)}</td><td>${format(group.analysis.Aw[index], 6)}</td><td>${format(group.analysis.Aw[index] / group.analysis.weights[index], 6)}</td></tr>`).join('');
-      return `<div class="audit-matrix-group"><h3>${escapeHTML(group.title)}</h3><p>λmax ${format(group.analysis.lambdaMax, 6)} · CI ${format(group.analysis.CI, 6)} · RI ${format(group.analysis.RI, 2)} · CR ${percent(group.analysis.CR, 3)} (${group.analysis.acceptable ? 'consistent by common guideline' : 'review comparisons'})</p><div class="table-scroll">${matrixTable(matrix, group.items)}<table class="diagnostic-table"><thead><tr><th>Item</th><th>Priority</th><th>Aw</th><th>Aw / priority</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
+      const consistency = group.analysis.acceptable ? t('audit.consistent') : t('audit.reviewComparisons');
+      const stats = t('audit.stats', {
+        lambda: format(group.analysis.lambdaMax, 6),
+        ci: format(group.analysis.CI, 6),
+        ri: format(group.analysis.RI, 2),
+        cr: percent(group.analysis.CR, 3),
+        consistency,
+      });
+      return `<div class="audit-matrix-group"><h3>${escapeHTML(group.title)}</h3><p>${escapeHTML(stats)}</p><div class="table-scroll">${matrixTable(matrix, group.items)}<table class="diagnostic-table"><thead><tr><th>${escapeHTML(t('audit.item'))}</th><th>${escapeHTML(t('audit.priority'))}</th><th>${escapeHTML(t('audit.aw'))}</th><th>${escapeHTML(t('audit.awPriority'))}</th></tr></thead><tbody>${rows}</tbody></table></div></div>`;
     }).join('');
   }
 
@@ -291,16 +318,16 @@
 
   function exportCSV() {
     const weights = scenarioWeights();
-    const rows = [[ 'Criterion', 'Criterion weight', ...model.alternatives.map(option => nameOf(option)) ]];
+    const rows = [[t('csv.criterion'), t('csv.criterionWeight'), ...model.alternatives.map(option => nameOf(option))]];
     model.criteria.forEach((criterion, index) => rows.push([
       nameOf(criterion), weights[index], ...result.locals[index].weights,
     ]));
-    rows.push(['FINAL PREFERENCE', 1, ...scores]);
-    rows.push(['Solver', method, 'Scenario active', scenarioEnabled]);
-    rows.push(['Criteria consistency ratio', result.criteria.CR]);
-    model.criteria.forEach((criterion, index) => rows.push([`CR: ${nameOf(criterion)}`, result.locals[index].CR]));
-    download(rows.map(row => row.map(csvCell).join(',')).join('\n'), 'decision-results.csv', 'text/csv;charset=utf-8');
-    showToast('Results CSV exported');
+    rows.push([t('csv.finalPreference'), 1, ...scores]);
+    rows.push([t('csv.solver'), t(method === 'eigen' ? 'results.eigen' : 'results.rgmm'), t('csv.scenarioActive'), scenarioEnabled ? t('common.yes') : t('common.no')]);
+    rows.push([t('csv.criteriaConsistency'), result.criteria.CR]);
+    model.criteria.forEach((criterion, index) => rows.push([t('csv.criterionConsistency', { name: nameOf(criterion) }), result.locals[index].CR]));
+    download(rows.map(row => row.map(csvCell).join(',')).join('\n'), t('file.resultsCsv'), 'text/csv;charset=utf-8');
+    showToast(t('message.csvExported'));
   }
 
   function updateAfterEdit() {
@@ -416,8 +443,8 @@
   }));
 
   $('export-json').addEventListener('click', () => {
-    download(JSON.stringify(model, null, 2), 'my-decision.json', 'application/json');
-    showToast('Decision exported as JSON');
+    download(JSON.stringify(model, null, 2), t('file.decisionJson'), 'application/json');
+    showToast(t('message.jsonExported'));
   });
   $('import-json').addEventListener('click', () => $('json-file').click());
   $('json-file').addEventListener('change', async event => {
@@ -434,14 +461,31 @@
       scenarioEnabled = false;
       saveModel();
       render();
-      showToast('Decision imported');
+      showToast(t('message.imported'));
     } catch (error) {
-      showToast(`Import failed: ${error.message}`);
+      console.error(error);
+      showToast(t('message.importFailed'));
     } finally {
       event.target.value = '';
     }
   });
   $('download-csv').addEventListener('click', exportCSV);
+  $('language-select').addEventListener('change', async event => {
+    const requestedLocale = event.target.value;
+    try {
+      await I18n.load(requestedLocale);
+      try {
+        localStorage.setItem(LANGUAGE_KEY, requestedLocale);
+      } catch (error) {
+        console.warn(error);
+      }
+      render();
+    } catch (error) {
+      console.error(error);
+      event.target.value = I18n.locale;
+      showToast(t('message.localeLoadFailed'));
+    }
+  });
   $('reset-all').addEventListener('click', () => {
     model = emptyModel();
     comparisonLevel = 'criteria';
@@ -452,12 +496,30 @@
     try {
       localStorage.removeItem(STORAGE_KEY);
     } catch (error) {
-      console.warn('Could not clear browser storage.', error);
+      console.warn(error);
     }
     render();
-    showToast('Workspace cleared');
+    showToast(t('message.workspaceCleared'));
   });
 
-  // A completely blank workspace is a valid product starting state.
-  render();
+  async function initialize() {
+    let preferredLocale = 'en';
+    try {
+      preferredLocale = localStorage.getItem(LANGUAGE_KEY)
+        || (navigator.language?.toLowerCase().startsWith('fa') ? 'fa' : 'en');
+    } catch (error) {
+      console.warn(error);
+    }
+    try {
+      await I18n.load(preferredLocale);
+    } catch (error) {
+      console.error(error);
+      await I18n.load('en');
+    }
+    $('language-select').value = I18n.locale;
+    // A completely blank workspace is a valid product starting state.
+    render();
+  }
+
+  initialize();
 })();

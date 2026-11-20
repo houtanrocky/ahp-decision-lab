@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 22
       - name: Run tests
-        run: node --test tests/ahp.test.js
+        run: node --test tests/ahp.test.js tests/i18n.test.js
 
   deploy:
     needs: test
@@ -43,6 +43,7 @@ jobs:
           mkdir _site
           cp index.html styles.css _site/
           cp -r src _site/src
+          cp -r locales _site/locales
           touch _site/.nojekyll
       - name: Configure Pages
         uses: actions/configure-pages@v5
