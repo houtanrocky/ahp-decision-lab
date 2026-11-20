@@ -5,6 +5,9 @@ them in pairs, inspect the calculations, and export the result. The shipped
 workspace is empty: it contains no résumé, faculty profiles, or sample personal
 decision.
 
+**Live app:** <https://houtanrocky.github.io/ahp-decision-lab/> · **Source:**
+<https://github.com/houtanrocky/ahp-decision-lab>
+
 ## Use it
 
 1. Open `index.html` in a modern browser. No installation, account, build step,
