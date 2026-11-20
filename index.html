@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="light" />
+  <meta name="theme-color" content="#f6f8fb" />
+  <title>AHP Decision Lab · Make a clear choice</title>
+  <meta name="description" content="A private, local-first decision tool for comparing options against criteria you define." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="AHP Decision Lab · Make a choice you can explain" />
+  <meta property="og:description" content="Define options and criteria, compare them in pairs, and inspect how your decision is calculated." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="product-shell">
+    <header class="product-header">
+      <a class="product-brand" href="#top" aria-label="AHP Decision Lab home">DECISION<span>LAB</span></a>
+      <div class="product-actions">
+        <span class="privacy-label">Private by design · Runs in this browser</span>
+        <button class="button outline sm" id="export-json" type="button">Export decision</button>
+        <button class="button outline sm" id="import-json" type="button">Import decision</button>
+        <input id="json-file" type="file" accept=".json,application/json" hidden />
+      </div>
+    </header>
+
+    <section class="product-hero" id="top">
+      <div class="eyebrow">A PRIVATE, GENERAL PURPOSE DECISION TOOL</div>
+      <h1>Make a choice you can <em>explain.</em></h1>
+      <p>Define the options and criteria that matter to you. Compare them two at a time, see how the result is calculated, and test how sensitive it is to your priorities.</p>
+      <p class="privacy-copy">Your decision stays in this browser unless you export or share the JSON file. No account, personal profile, or server is involved.</p>
+    </section>
+
+    <section class="panel setup-panel" aria-labelledby="setup-title">
+      <div class="section-heading"><div><div class="eyebrow small">01 / DEFINE YOUR DECISION</div><h2 id="setup-title">Start with a blank workspace</h2></div><button id="reset-all" class="button text sm" type="button">Clear workspace</button></div>
+      <div class="definition-grid">
+        <section class="definition-column" aria-labelledby="options-title">
+          <div class="section-heading compact-heading"><div><h3 id="options-title">Options</h3><p class="muted">What are you choosing between?</p></div><button id="add-option" class="button outline sm" type="button">+ Add option</button></div>
+          <div id="options-list" class="definition-list"></div>
+          <p class="micro-note">Add 2–10 options. Examples: offers, plans, locations, tools, or project ideas.</p>
+        </section>
+        <section class="definition-column" aria-labelledby="criteria-title">
+          <div class="section-heading compact-heading"><div><h3 id="criteria-title">Criteria</h3><p class="muted">What makes one option better for you?</p></div><button id="add-criterion" class="button outline sm" type="button">+ Add criterion</button></div>
+          <div id="criteria-list" class="definition-list"></div>
+          <p class="micro-note">Add 2–10 criteria. Use distinct, relevant factors that reflect your decision.</p>
+        </section>
+      </div>
+      <div class="setup-hint" id="setup-hint" role="status">Add at least two options and two criteria to begin comparing.</div>
+    </section>
+
+    <section id="workspace" class="workspace hidden">
+      <nav class="tabbar" aria-label="Decision views">
+        <button class="tab active" data-tab="analysis" type="button">02 <b>Compare &amp; analyze</b></button>
+        <button class="tab" data-tab="method" type="button">03 <b>How it works</b></button>
+        <div class="tab-right"><button id="download-csv" class="button outline sm" type="button">Export results CSV</button></div>
+      </nav>
+
+      <section id="analysis" class="tab-content active">
+        <div class="content-grid">
+          <section class="panel comparisons-panel" aria-labelledby="judgments-title">
+            <div class="panel-title-line"><div><div class="eyebrow small">YOUR INPUTS</div><h2 id="judgments-title">Pairwise comparisons</h2></div><div class="hint-circle" title="A value of 3 means the left item is moderately preferred. A value of 1/3 means the right item is preferred.">?</div></div>
+            <p class="muted compact">For each pair, choose which matters more and by how much. Equal is a valid judgment.</p>
+            <div class="segmented" role="group" aria-label="Comparison layer"><button id="type-criteria" class="active" type="button">Criteria importance</button><button id="type-alternatives" type="button">Options by criterion</button></div>
+            <div id="criterion-picker" class="picker-wrap hidden"><label for="criterion-select">Compare options for this criterion</label><select id="criterion-select" class="large-select"></select></div>
+            <div class="scale-info"><span>LEFT PREFERRED</span><span>EQUAL</span><span>RIGHT PREFERRED</span></div>
+            <div id="pair-list" class="pair-list"></div>
+            <details class="inner-details"><summary>Show the reciprocal comparison matrix</summary><div id="editable-matrix" class="table-scroll"></div></details>
+            <p class="micro-note">These are your judgments. They are not facts or probabilities. Add a short reason beside a comparison if useful.</p>
+          </section>
+
+          <section class="panel results-panel" aria-labelledby="result-title">
+            <div class="panel-title-line"><div><div class="eyebrow small">CALCULATED FROM YOUR INPUTS</div><h2 id="result-title">Your results</h2></div><div class="method-pill">AHP</div></div>
+            <div class="method-picker"><label for="method-select">Priority calculation</label><select id="method-select"><option value="eigen">Principal eigenvector</option><option value="rgmm">Row geometric mean (RGMM)</option></select></div>
+            <div class="meta-line"><span id="mode-label">Calculated preference shares</span><span id="criterion-cr">Consistency —</span></div>
+            <div id="ranking" class="ranking"></div>
+            <div class="result-comment"><strong>Interpretation</strong><p id="result-caveat">Shares summarize your stated preferences. They are not probabilities or guarantees.</p></div>
+            <div class="split-title"><h3>What contributed to each result?</h3><span>criterion weight × option priority</span></div>
+            <div id="contributions" class="table-scroll"></div>
+            <div class="split-title space-top"><h3>Judgment consistency</h3><span>CR ≤ 0.10 is a common review guideline</span></div>
+            <div id="consistency"></div>
+          </section>
+        </div>
+
+        <section class="panel sensitivity-panel">
+          <div class="sensitivity-head"><div><div class="eyebrow small">WHAT-IF ANALYSIS</div><h2>Would a different priority change the leader?</h2><p class="muted compact">Vary one criterion's weight while keeping the other criteria in the same relative proportions.</p></div>
+            <div class="scenario-control"><label for="scenario-toggle"><input id="scenario-toggle" type="checkbox" /> Use this scenario in the result above</label><label for="scenario-slider" class="range-title"><span id="scenario-weight-name">Criterion weight</span><strong id="scenario-percent">50%</strong></label><input type="range" id="scenario-slider" min="0" max="100" step="1" value="50" /><label for="scenario-criterion" class="tiny-label">Criterion to vary</label><select id="scenario-criterion"></select></div>
+          </div>
+          <div id="sensitivity-chart" class="chart-wrap"></div><div class="chart-legend" id="chart-legend"></div><div class="sensitivity-foot"><div id="sensitivity-note"></div></div>
+        </section>
+      </section>
+
+      <section id="method" class="tab-content">
+        <div class="panel"><div class="eyebrow small">THE METHOD</div><h2>From your comparisons to a ranked list</h2><div class="method-grid">
+          <article><div class="step-num">01</div><h3>Compare pairs</h3><p>You express a relative preference on Saaty's 1–9 scale. Reverse comparisons are filled in as reciprocals.</p><code>A[i,j] = a; A[j,i] = 1/a</code></article>
+          <article><div class="step-num">02</div><h3>Calculate priorities</h3><p>The selected solver turns each comparison matrix into weights that sum to one.</p><code>Eigenvector or row geometric mean</code></article>
+          <article><div class="step-num">03</div><h3>Review consistency</h3><p>The consistency ratio flags comparisons that may conflict. It measures coherence, not correctness.</p><code>CR = CI / Random Index</code></article>
+          <article><div class="step-num">04</div><h3>Combine the results</h3><p>Each option's local priority is multiplied by each criterion's weight and summed.</p><code>score = Σ(weight × local priority)</code></article>
+        </div><div class="method-alert">AHP organizes your judgments; it does not discover objective truth. Review the criteria, comparisons, and evidence behind your choice.</div></div>
+        <div class="panel"><div class="panel-title-line"><div><div class="eyebrow small">AUDIT TRAIL</div><h2>Calculation details</h2></div><div class="method-pill" id="audit-method">Principal eigenvector</div></div><div id="audit-summary"></div><div id="all-matrices"></div></div>
+        <div class="panel"><h2>Privacy and your files</h2><p>This app has no account, analytics, or server connection. Your editable workspace is saved in local storage on this browser. Export JSON to back it up or move it; the file contains all options, criteria, comparisons, and notes you entered.</p><p>Use <b>Clear workspace</b> to remove the saved model from this browser and start over. This does not delete JSON files you exported.</p></div>
+      </section>
+    </section>
+
+    <footer class="footer"><span>AHP DECISION LAB · Local-first decision support</span><span>Your criteria. Your judgments. Your decision.</span></footer>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="src/data.js"></script><script src="src/model.js"></script><script src="src/ahp.js"></script><script src="src/app.js"></script>
+</body>
+</html>
